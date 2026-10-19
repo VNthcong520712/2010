@@ -1,0 +1,645 @@
+<title>Cô Gái Và Mèo Đen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap">
+<style>
+/* Bố cục: một sân khấu SVG cố định, cuộn trang để lật từng cảnh; lời kể nằm ở dải đất phía dưới */
+:root{
+  --bg:#fff4ec; --ink:#2b2d42; --card:rgba(255,255,255,.94); --line:rgba(43,45,66,.12);
+  --accent:#e63946; --muted:#6d6875;
+  --font:'Baloo 2', 'Segoe UI', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#1c1b29; --ink:#f3f1f7; --card:rgba(32,30,48,.92); --line:rgba(255,255,255,.14); --accent:#ff6b7a; --muted:#b7b2c4; color-scheme:dark }
+}
+:root[data-theme="dark"]{ --bg:#1c1b29; --ink:#f3f1f7; --card:rgba(32,30,48,.92); --line:rgba(255,255,255,.14); --accent:#ff6b7a; --muted:#b7b2c4; color-scheme:dark }
+
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font)}
+#track{width:100%}
+#stage{position:fixed;inset:0;overflow:hidden;background:#8ecae6;transition:background .6s ease}
+#stage svg{width:100%;height:100%;display:block;font-family:var(--font)}
+.scene{opacity:0;transition:opacity .55s ease}
+.scene.on{opacity:1}
+
+#cap{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  width:min(700px, calc(100% - 32px));background:var(--card);color:var(--ink);border:1px solid var(--line);
+  border-radius:20px;padding:10px 22px 12px;font-size:clamp(16px,2.1vw,21px);line-height:1.45;text-align:center;
+  box-shadow:0 8px 28px rgba(0,0,0,.16);transition:opacity .3s ease, transform .3s ease;text-wrap:balance}
+#cap.hide{opacity:0;transform:translate(-50%,12px)}
+#cap b{color:var(--accent);font-weight:800}
+#cap .n{display:block;font-size:.68em;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+
+#bar{position:fixed;left:0;top:env(safe-area-inset-top,0px);height:5px;width:0;background:var(--accent);z-index:5}
+
+#intro{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);width:min(460px, calc(100% - 32px));
+  background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:26px;padding:22px 26px 18px;
+  text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.18);transition:opacity .4s ease, transform .4s ease;z-index:4}
+#intro h1{margin:0;font-size:clamp(26px,4.4vw,38px);line-height:1.1;font-weight:800;text-wrap:balance}
+#intro h1 span{color:var(--accent)}
+#intro p{margin:8px 0 0;color:var(--muted);font-size:17px}
+#intro .mouse{width:26px;height:40px;border:3px solid var(--ink);border-radius:14px;margin:14px auto 0;position:relative}
+#intro .mouse::after{content:"";position:absolute;left:50%;top:7px;width:4px;height:8px;margin-left:-2px;border-radius:2px;background:var(--accent);animation:wheel 1.4s ease-in-out infinite}
+#intro.gone{opacity:0;transform:translate(-50%,-56%);pointer-events:none}
+@keyframes wheel{0%{transform:translateY(0);opacity:1}100%{transform:translateY(12px);opacity:0}}
+
+/* hiệu ứng nền chạy liên tục */
+.floatUp{animation:floatUp 2.6s linear infinite}
+@keyframes floatUp{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-70px);opacity:0}}
+.wave{animation:wave 1.6s ease-in-out infinite}
+@keyframes wave{0%,100%{transform:translateY(0);opacity:.2}50%{transform:translateY(-14px);opacity:1}}
+.twinkle{animation:twinkle 2s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.25}50%{opacity:1}}
+.pulse{transform-box:fill-box;transform-origin:center;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.breathe{transform-box:fill-box;transform-origin:50% 100%;animation:breathe 3s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.06)}}
+@media (prefers-reduced-motion: reduce){
+  .floatUp,.wave,.twinkle,.pulse,.breathe,#intro .mouse::after{animation:none}
+  .scene,#cap{transition:none}
+}
+</style>
+
+<div id="track"></div>
+<div id="stage">
+  <svg id="svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Câu chuyện cô gái và chú mèo đen"></svg>
+</div>
+<div id="bar"></div>
+<div id="intro">
+  <h1>Cô gái &amp; <span>chú mèo đen</span></h1>
+  <p>Một chuyến đi Thái Lan, mang về một người bạn nhỏ.</p>
+  <div class="mouse" aria-hidden="true"></div>
+  <p>Lăn chuột (hoặc vuốt) để bắt đầu</p>
+</div>
+<div id="cap" class="hide" aria-live="polite"></div>
+
+<script>
+/* ---------- tiện ích ---------- */
+const SKIN='#f6c9a0', HAIR='#3d2314', DRESS='#e63946', BLK='#151515';
+const $=id=>document.getElementById(id);
+const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+const seg=(p,a,b)=>clamp((p-a)/(b-a));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const pop=t=>{if(t<=0)return 0;const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)};
+const rep=(n,f)=>Array.from({length:n},(_,i)=>f(i)).join('');
+function place(id,x,y,s=1,flip=false,rot=0){$(id).setAttribute('transform',`translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(2)}) scale(${(flip?-s:s).toFixed(3)} ${s.toFixed(3)})`)}
+function op(id,v){$(id).setAttribute('opacity',clamp(v).toFixed(3))}
+function show(id,attr,val){$(id).querySelectorAll(`[data-${attr}]`).forEach(e=>e.setAttribute('opacity',e.dataset[attr]===val?1:0))}
+const face=(id,m)=>show(id,'e',m);
+const arm=(id,m)=>show(id,'a',m);
+function walk(id,ph,amp=24){
+  const el=$(id),a=Math.sin(ph)*amp;
+  el.querySelector('.legL').setAttribute('transform',`rotate(${a.toFixed(1)} -7.5 -62)`);
+  el.querySelector('.legR').setAttribute('transform',`rotate(${(-a).toFixed(1)} 7.5 -62)`);
+  el.querySelector('.gb').setAttribute('transform',`translate(0 ${(-Math.abs(Math.cos(ph))*3).toFixed(1)})`);
+}
+function catWalk(id,ph,amp=26){
+  const el=$(id),a=Math.sin(ph)*amp;
+  [['l1',a,-13.5],['l2',-a,-3.5],['l3',-a,9.5],['l4',a,18.5]].forEach(([c,r,x])=>el.querySelector('.'+c).setAttribute('transform',`rotate(${r.toFixed(1)} ${x} -15)`));
+  el.querySelector('.tail').setAttribute('transform',`rotate(${(Math.sin(ph*.5)*8).toFixed(1)} -20 -20)`);
+}
+function catHead(id,dy=0,rot=0){$(id).querySelector('.hd').setAttribute('transform',`translate(0 ${dy.toFixed(1)}) rotate(${rot.toFixed(1)} 23 -37)`)}
+
+/* ---------- nhân vật ---------- */
+function girl(id,o={}){
+  const limb=d=>`<path d="${d}" stroke="${SKIN}" stroke-width="7" fill="none" stroke-linecap="round"/>`;
+  const arms=o.arms||['down'];
+  const front={
+    down:limb('M15,-112 Q24,-96 25,-78'),
+    reach:limb('M15,-112 Q32,-104 50,-98')+`<circle cx="50" cy="-98" r="4.5" fill="${SKIN}"/>`,
+    pillow:`<rect x="12" y="-115" width="48" height="31" rx="8" fill="#ffc8dd" stroke="#ff8fab" stroke-width="3"/>
+      <rect x="17.5" y="-109.5" width="37" height="20" rx="5" fill="none" stroke="#ff8fab" stroke-width="1.6" stroke-dasharray="3 3"/>`
+      +limb('M14,-112 Q22,-84 52,-93')+`<circle cx="52" cy="-93" r="4.5" fill="${SKIN}"/>`,
+    camera:limb('M15,-112 Q32,-118 30,-146')+`<rect x="24" y="-163" width="28" height="19" rx="4" fill="#222"/>
+      <rect x="28" y="-167" width="9" height="5" rx="1.5" fill="#222"/><circle cx="40" cy="-153.5" r="5.5" fill="#5390d9" stroke="#ddd" stroke-width="2"/>
+      <circle class="fl" cx="56" cy="-158" r="22" fill="#fff" opacity="0"/>`
+  };
+  let s=`<g id="${id}"><g class="gb">`;
+  if(o.suitcase) s+=`<line x1="-58" y1="-87" x2="-87" y2="-57" stroke="#6c757d" stroke-width="4" stroke-linecap="round"/>
+    <g transform="rotate(-10 -78 -2)"><rect x="-100" y="-58" width="44" height="54" rx="7" fill="#2a9d8f" stroke="#1d6f66" stroke-width="3"/>
+    <line x1="-88" y1="-50" x2="-88" y2="-12" stroke="#1d6f66" stroke-width="3"/><line x1="-68" y1="-50" x2="-68" y2="-12" stroke="#1d6f66" stroke-width="3"/>
+    <circle cx="-92" cy="-2" r="5" fill="#333"/><circle cx="-64" cy="-2" r="5" fill="#333"/></g>`;
+  if(o.pack!==false) s+=pack(0,0);
+  s+=`<g class="legL"><rect x="-12" y="-64" width="9" height="62" rx="4" fill="${SKIN}"/><ellipse cx="-5" cy="-3" rx="9" ry="5" fill="#333"/></g>
+    <g class="legR"><rect x="3" y="-64" width="9" height="62" rx="4" fill="${SKIN}"/><ellipse cx="10" cy="-3" rx="9" ry="5" fill="#333"/></g>
+    <path d="M-15,-118 Q0,-122 15,-118 L30,-56 Q0,-50 -30,-56 Z" fill="${DRESS}"/>
+    <path d="M-7,-119 L0,-110 L7,-119 Z" fill="#fff"/>`;
+  if(o.pack!==false) s+=`<path d="M-11,-117 L-9,-86" stroke="#c4561a" stroke-width="4" stroke-linecap="round"/>`;
+  s+= o.suitcase? limb('M-15,-112 Q-36,-100 -58,-87') : limb('M-15,-112 Q-24,-96 -25,-78');
+  s+=`<rect x="-5" y="-127" width="10" height="10" fill="${SKIN}"/>
+    <path d="M-29,-146 Q-31,-178 0,-178 Q31,-178 29,-146 L31,-108 Q22,-104 16,-112 L-16,-112 Q-22,-104 -31,-108 Z" fill="${HAIR}"/>
+    <circle cx="0" cy="-146" r="25" fill="${SKIN}"/>
+    <path d="M-27,-146 Q-27,-175 0,-174 Q27,-175 27,-146 Q22,-160 8,-162 Q2,-152 -8,-160 Q-18,-156 -27,-146 Z" fill="${HAIR}"/>
+    <circle cx="19" cy="-166" r="5.5" fill="#ff4d6d"/>
+    <ellipse cx="-15" cy="-136" rx="5" ry="3.5" fill="#ff8fab" opacity=".7"/><ellipse cx="15" cy="-136" rx="5" ry="3.5" fill="#ff8fab" opacity=".7"/>
+    <g data-e="n"><circle cx="-9" cy="-145" r="3.3" fill="#222"/><circle cx="9" cy="-145" r="3.3" fill="#222"/><circle cx="-8" cy="-146" r="1" fill="#fff"/><circle cx="10" cy="-146" r="1" fill="#fff"/></g>
+    <g data-e="h" opacity="0"><path d="M-13,-144 Q-9,-150 -5,-144 M5,-144 Q9,-150 13,-144" stroke="#222" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>`;
+  s+= o.mouth==='o'? `<ellipse cx="0" cy="-131" rx="3.5" ry="4.5" fill="#a4161a"/>`
+                    : `<path d="M-6,-134 Q0,-128 6,-134" stroke="#a4161a" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
+  arms.forEach((a,i)=>{ s+=`<g data-a="${a}" opacity="${i?0:1}">${front[a]}</g>` });
+  return s+`</g></g>`;
+}
+function pack(x,y){
+  return `<g transform="translate(${x} ${y})"><rect x="-56" y="-122" width="44" height="58" rx="10" fill="#f37021" stroke="#c4561a" stroke-width="3"/>
+    <rect x="-53" y="-103" width="31" height="17" rx="3" fill="#fff"/>
+    <text x="-37.5" y="-89.6" text-anchor="middle" font-size="13.5" font-weight="900" font-family="Arial,Helvetica,sans-serif"><tspan fill="#0f5aa6">F</tspan><tspan fill="#f37021">P</tspan><tspan fill="#3cb54a">T</tspan></text></g>`;
+}
+const catEyes=(cx1,cx2,cy,big=1)=>`
+  <g data-e="n"><ellipse cx="${cx1}" cy="${cy}" rx="${3.4*big}" ry="${4.2*big}" fill="#ffd60a"/><ellipse cx="${cx2}" cy="${cy}" rx="${3.4*big}" ry="${4.2*big}" fill="#ffd60a"/>
+    <ellipse cx="${cx1+.4}" cy="${cy}" rx="${1.3*big}" ry="${3.2*big}" fill="#111"/><ellipse cx="${cx2+.4}" cy="${cy}" rx="${1.3*big}" ry="${3.2*big}" fill="#111"/></g>
+  <g data-e="h" opacity="0"><path d="M${cx1-3.5*big},${cy+1} Q${cx1},${cy-5*big} ${cx1+3.5*big},${cy+1} M${cx2-3.5*big},${cy+1} Q${cx2},${cy-5*big} ${cx2+3.5*big},${cy+1}" stroke="#ffd60a" stroke-width="${2.3*big}" fill="none" stroke-linecap="round"/></g>
+  <g data-e="s" opacity="0"><path d="M${cx1-3.5*big},${cy-3*big} L${cx1+2.5*big},${cy} L${cx1-3.5*big},${cy+3*big} M${cx2+3.5*big},${cy-3*big} L${cx2-2.5*big},${cy} L${cx2+3.5*big},${cy+3*big}" stroke="#ffd60a" stroke-width="${2.1*big}" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+function cat(id){
+  const leg=(c,x)=>`<rect class="${c}" x="${x}" y="-15" width="7" height="15" rx="3" fill="${BLK}"/>`;
+  return `<g id="${id}"><g class="cb">
+    <path class="tail" d="M-20,-20 Q-42,-22 -36,-50" stroke="${BLK}" stroke-width="6" fill="none" stroke-linecap="round"/>
+    ${leg('l1',-17)}${leg('l2',-7)}${leg('l3',6)}${leg('l4',15)}
+    <ellipse cx="0" cy="-21" rx="24" ry="13" fill="${BLK}"/>
+    <g class="hd">
+      <path d="M11,-42 L13,-59 L23,-47 Z M24,-47 L34,-59 L35,-42 Z" fill="${BLK}"/>
+      <path d="M14,-47 L15,-54 L20,-49 Z M27,-49 L32,-54 L32,-47 Z" fill="#ff8fab"/>
+      <circle cx="23" cy="-37" r="13" fill="${BLK}"/>
+      ${catEyes(18,29,-39)}
+      <path d="M22,-33 l3.4,0 l-1.7,2.2 z" fill="#ff8fab"/>
+      <path d="M33,-33 l11,-2.5 M33,-31 l11,1 M14,-33 l-9,-2" stroke="#9a9a9a" stroke-width=".9"/>
+    </g></g></g>`;
+}
+function catSit(id){
+  return `<g id="${id}"><g class="cb">
+    <path d="M14,-8 Q42,-12 34,-44" stroke="${BLK}" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <ellipse cx="0" cy="-27" rx="19" ry="26" fill="${BLK}"/>
+    <ellipse cx="-8" cy="-3" rx="7" ry="4.5" fill="${BLK}"/><ellipse cx="8" cy="-3" rx="7" ry="4.5" fill="${BLK}"/>
+    <g class="hd">
+      <path d="M-16,-62 L-15,-86 L-2,-72 Z M16,-62 L15,-86 L2,-72 Z" fill="${BLK}"/>
+      <path d="M-13,-70 L-12.5,-80 L-6,-73 Z M13,-70 L12.5,-80 L6,-73 Z" fill="#ff8fab"/>
+      <circle cx="0" cy="-62" r="18" fill="${BLK}"/>
+      ${catEyes(-7,7,-64,1.15)}
+      <path d="M-2,-56 l4,0 l-2,2.4 z" fill="#ff8fab"/>
+      <path d="M-4,-52 q2,2 4,0 q2,2 4,0" stroke="#bbb" stroke-width="1.1" fill="none"/>
+      <path d="M9,-56 l14,-3 M9,-54 l14,2 M-9,-56 l-14,-3 M-9,-54 l-14,2" stroke="#9a9a9a" stroke-width=".9"/>
+    </g></g></g>`;
+}
+function girlFace(cx,cy,s){
+  return `<g transform="translate(${cx} ${cy}) scale(${s})">
+    <path d="M-56,-4 Q-60,-64 0,-64 Q60,-64 56,-4 L60,58 Q40,66 30,48 L-30,48 Q-40,66 -60,58 Z" fill="${HAIR}"/>
+    <circle r="48" fill="${SKIN}"/>
+    <path d="M-50,-4 Q-52,-60 0,-58 Q52,-60 50,-4 Q42,-30 16,-34 Q6,-18 -12,-32 Q-34,-28 -50,-4 Z" fill="${HAIR}"/>
+    <path d="M30,-50 L22,-64 L40,-58 Z M42,-46 L56,-56 L52,-40 Z" fill="#ff4d6d"/><circle cx="40" cy="-50" r="6" fill="#ff4d6d"/>
+    <path d="M-27,4 Q-17,-9 -7,4 M7,4 Q17,-9 27,4" stroke="#222" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="-31" cy="17" rx="9" ry="6" fill="#ff8fab" opacity=".75"/><ellipse cx="31" cy="17" rx="9" ry="6" fill="#ff8fab" opacity=".75"/>
+    <path d="M-15,16 Q0,38 15,16 Z" fill="#a4161a"/><path d="M-8,26 Q0,32 8,26 Q0,23 -8,26 Z" fill="#ff6b81"/>
+  </g>`;
+}
+function catFace(cx,cy,s){
+  return `<g transform="translate(${cx} ${cy}) scale(${s})">
+    <path d="M-44,-14 L-40,-70 L-6,-40 Z M44,-14 L40,-70 L6,-40 Z" fill="${BLK}"/>
+    <path d="M-37,-26 L-35,-58 L-16,-41 Z M37,-26 L35,-58 L16,-41 Z" fill="#ff8fab"/>
+    <ellipse rx="50" ry="44" fill="${BLK}"/>
+    <path d="M-29,0 Q-18,-14 -7,0 M7,0 Q18,-14 29,0" stroke="#ffd60a" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="-31" cy="15" rx="8" ry="5" fill="#ff8fab" opacity=".55"/><ellipse cx="31" cy="15" rx="8" ry="5" fill="#ff8fab" opacity=".55"/>
+    <path d="M-5,9 L5,9 L0,14 Z" fill="#ff8fab"/>
+    <path d="M-11,17 Q-5.5,24 0,17 Q5.5,24 11,17" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <path d="M-5,21 Q0,30 5,21 Z" fill="#ff6b81"/>
+    <path d="M22,12 L58,5 M22,18 L58,20 M-22,12 L-58,5 M-22,18 L-58,20" stroke="#ddd" stroke-width="2" stroke-linecap="round"/>
+  </g>`;
+}
+function plane(o={}){
+  return `<path d="M-30,2 L-52,-26 L-38,-26 L10,2 Z" fill="#9fb3c8"/>
+    <path d="M-92,-14 L-112,-52 L-92,-52 L-62,-14 Z" fill="${DRESS}"/>
+    <path d="M-100,-6 Q-100,-16 -88,-16 L70,-16 Q108,-14 110,2 Q108,16 80,16 L-86,16 Q-100,16 -100,6 Z" fill="#f8f9fa" stroke="#1d3557" stroke-width="3" vector-effect="non-scaling-stroke"/>
+    <path d="M-98,8 L96,8" stroke="${DRESS}" stroke-width="3" vector-effect="non-scaling-stroke"/>
+    ${rep(o.door?8:9,i=>`<circle cx="${-64+i*15}" cy="-3" r="3.6" fill="#48cae4"/>`)}
+    <path d="M86,-9 Q99,-9 103,-2 L88,-2 Z" fill="#1d3557"/>
+    ${o.door?`<rect x="56" y="-12" width="12" height="22" rx="2" fill="#1d3557"/><rect x="58" y="-10" width="8" height="6" rx="1" fill="#48cae4"/>`:''}
+    <ellipse cx="-12" cy="22" rx="13" ry="5.5" fill="#adb5bd"/>
+    <path d="M-20,6 L-50,34 L-32,34 L22,6 Z" fill="#457b9d"/>`;
+}
+const cloud=(x,y,s=1)=>`<g transform="translate(${x} ${y}) scale(${s})" fill="#fff"><ellipse cx="0" cy="0" rx="34" ry="20"/><ellipse cx="30" cy="-14" rx="30" ry="24"/><ellipse cx="62" cy="0" rx="32" ry="19"/><rect x="0" y="0" width="62" height="19"/></g>`;
+const heart=(fill='#ff4d6d')=>`<path d="M0,35 C0,35 -50,5 -50,-15 C-50,-35 -30,-45 -15,-45 C-5,-45 0,-38 0,-30 C0,-38 5,-45 15,-45 C30,-45 50,-35 50,-15 C50,5 0,35 0,35 Z" fill="${fill}"/>`;
+const starPts=(cx,cy,R,r)=>rep(10,i=>{const a=-Math.PI/2+i*Math.PI/5,d=i%2?r:R;return `${(cx+Math.cos(a)*d).toFixed(1)},${(cy+Math.sin(a)*d).toFixed(1)} `});
+const vnFlag=(x,y)=>`<rect x="${x}" y="${y}" width="34" height="23" fill="#da251d"/><polygon points="${starPts(x+17,y+11.5,8,3.3)}" fill="#ffde00"/>`;
+const thFlag=(x,y)=>`<rect x="${x}" y="${y}" width="34" height="23" fill="#a51931"/><rect x="${x}" y="${y+4}" width="34" height="15" fill="#f4f5f8"/><rect x="${x}" y="${y+7.5}" width="34" height="8" fill="#2d2a4a"/>`;
+function palm(x,h=170,y=480){
+  const tx=x+22,ty=y-h;
+  return `<path d="M${x},${y} Q${x-12},${y-h/2} ${tx},${ty}" stroke="#a0522d" stroke-width="13" fill="none" stroke-linecap="round"/>
+    ${[195,158,-118,-68,-28,12].map(a=>`<ellipse cx="${tx}" cy="${ty}" rx="56" ry="12" fill="${a%2?'#2d9a4e':'#40b463'}" transform="rotate(${a} ${tx} ${ty}) translate(40 0)"/>`).join('')}
+    <circle cx="${tx-7}" cy="${ty+8}" r="7" fill="#7f4f24"/><circle cx="${tx+7}" cy="${ty+10}" r="7" fill="#7f4f24"/>`;
+}
+function stall(x,c1,c2,goods){
+  let s=`<rect x="${x}" y="320" width="8" height="160" fill="#7f5539"/><rect x="${x+192}" y="320" width="8" height="160" fill="#7f5539"/>
+    <path d="M${x-14},302 L${x+100},268 L${x+214},302 Z" fill="${c1}"/>`;
+  s+=rep(8,i=>`<rect x="${x-10+i*27.5}" y="300" width="27.5" height="38" fill="${i%2?c2:c1}"/><circle cx="${x+3.75+i*27.5}" cy="338" r="13.75" fill="${i%2?c2:c1}"/>`);
+  s+=`<rect x="${x-4}" y="420" width="208" height="14" fill="#9c6644"/><rect x="${x+6}" y="434" width="188" height="46" fill="#b08968"/>`;
+  s+=goods.map((c,i)=>`<circle cx="${x+18+i*21}" cy="${410-(i%2)*4}" r="10.5" fill="${c}"/>`).join('');
+  return s;
+}
+function tuktuk(x){
+  return `<g transform="translate(${x} 0)"><rect x="-6" y="372" width="132" height="14" rx="5" fill="#ffd60a"/><rect x="0" y="386" width="10" height="40" fill="#ffd60a"/>
+    <path d="M0,420 L0,400 Q0,392 10,392 L92,392 L120,420 L138,428 L138,454 L0,454 Z" fill="#0077b6"/>
+    <rect x="18" y="400" width="56" height="26" rx="5" fill="#caf0f8"/><path d="M96,400 L116,422 L96,422 Z" fill="#caf0f8"/>
+    <circle cx="30" cy="460" r="17" fill="#222"/><circle cx="30" cy="460" r="7" fill="#adb5bd"/><circle cx="118" cy="460" r="17" fill="#222"/><circle cx="118" cy="460" r="7" fill="#adb5bd"/>
+    <text x="46" y="447" text-anchor="middle" font-size="12" font-weight="800" fill="#ffd60a">TUK TUK</text></g>`;
+}
+function temple(x){
+  return `<g transform="translate(${x} 0)">
+    <rect x="-20" y="440" width="440" height="40" fill="#f1faee" stroke="#d8d0c0" stroke-width="3"/>
+    <rect x="30" y="338" width="340" height="102" fill="#fefae0"/>
+    ${rep(6,i=>`<rect x="${44+i*60}" y="338" width="12" height="102" fill="#e9c46a"/>`)}
+    <path d="M176,440 L176,388 Q200,360 224,388 L224,440 Z" fill="#bc6c25"/>
+    <path d="M-10,352 L200,248 L410,352 Z" fill="#d62828"/><path d="M-10,352 L410,352 L400,342 L0,342 Z" fill="#2a9d8f"/>
+    <path d="M60,270 L200,182 L340,270 Z" fill="#f77f00"/><path d="M60,270 L340,270 L330,262 L70,262 Z" fill="#2a9d8f"/>
+    <path d="M-10,352 q-14,-6 -8,-24 M410,352 q14,-6 8,-24 M60,270 q-12,-6 -6,-22 M340,270 q12,-6 6,-22 M200,182 l0,-26 q8,-6 4,-14" stroke="#ffb703" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M150,310 L200,276 L250,310 Z" fill="#ffd60a"/></g>`;
+}
+function stupa(c){
+  return `<g>
+    <rect x="${c-100}" y="440" width="200" height="40" fill="#bc6c25"/><rect x="${c-80}" y="410" width="160" height="30" fill="#a65d28"/><rect x="${c-62}" y="386" width="124" height="24" fill="#bc6c25"/>
+    ${rep(5,i=>`<line x1="${c-100}" y1="${448+i*8}" x2="${c+100}" y2="${448+i*8}" stroke="#8a4b1c" stroke-width="1.5"/>`)}
+    <path d="M${c-56},387 Q${c-58},300 ${c},290 Q${c+58},300 ${c+56},387 Z" fill="#a65d28"/>
+    <path d="M${c-30},330 Q${c-20},322 ${c-10},330 M${c+12},350 Q${c+22},342 ${c+32},350" stroke="#7f4319" stroke-width="3" fill="none"/>
+    <rect x="${c-14}" y="250" width="28" height="42" fill="#bc6c25"/>
+    ${rep(5,i=>`<rect x="${c-12+i}" y="${212+i*8}" width="${24-i*2}" height="6" fill="${i%2?'#a65d28':'#c97b3b'}"/>`)}
+    <path d="M${c-6},212 L${c},150 L${c+6},212 Z" fill="#8a4b1c"/>
+    <path d="M${c+60},480 q10,-18 24,-6" stroke="#52b788" stroke-width="5" fill="none"/></g>`;
+}
+function prang(c){
+  return `<g><path d="M${c-95},480 L${c-72},400 L${c-52},400 L${c-40},322 L${c-26},322 L${c-15},232 L${c-6},232 L${c},168 L${c+6},232 L${c+15},232 L${c+26},322 L${c+40},322 L${c+52},400 L${c+72},400 L${c+95},480 Z" fill="#f1e3c6" stroke="#e09f3e" stroke-width="3"/>
+    ${[[400,72],[322,40],[232,15]].map(([y,w])=>`<rect x="${c-w}" y="${y}" width="${w*2}" height="8" fill="#e09f3e"/>`).join('')}
+    ${rep(6,i=>`<circle cx="${c-50+i*20}" cy="440" r="5" fill="#e76f51"/>`)}${rep(4,i=>`<circle cx="${c-24+i*16}" cy="360" r="4" fill="#2a9d8f"/>`)}</g>`;
+}
+function elephant(c){
+  return `<g><path d="M${c-66},${400} q-14,10 -10,30" stroke="#8d99ae" stroke-width="5" fill="none"/>
+    ${[-48,-20,22,46].map(dx=>`<rect x="${c+dx-10}" y="420" width="22" height="60" rx="6" fill="#8d99ae"/>`).join('')}
+    <ellipse cx="${c}" cy="405" rx="68" ry="46" fill="#8d99ae"/><path d="M${c-30},362 L${c+20},362 L${c+14},400 L${c-24},400 Z" fill="#e63946"/><path d="M${c-24},400 L${c+14},400" stroke="#ffd60a" stroke-width="4"/>
+    <path d="M${c+92},392 Q${c+118},430 ${c+104},462" stroke="#8d99ae" stroke-width="16" fill="none" stroke-linecap="round"/>
+    <circle cx="${c+66}" cy="378" r="36" fill="#8d99ae"/><ellipse cx="${c+50}" cy="384" rx="20" ry="30" fill="#a7b3c6"/>
+    <circle cx="${c+82}" cy="370" r="4" fill="#222"/><path d="M${c+92},404 q10,8 22,2" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/></g>`;
+}
+function shop(x,col,name){
+  return `<g transform="translate(${x} 0)"><rect x="0" y="290" width="190" height="190" fill="${col}"/>
+    <rect x="12" y="300" width="166" height="36" rx="6" fill="#fff"/><text x="95" y="327" text-anchor="middle" font-size="21" font-weight="800" fill="#1d3557">${name}</text>
+    ${rep(7,i=>`<rect x="${-4+i*28.3}" y="344" width="28.3" height="22" fill="${i%2?'#fff':'#e63946'}"/>`)}
+    <rect x="16" y="380" width="70" height="56" fill="#caf0f8" stroke="#fff" stroke-width="4"/><rect x="110" y="380" width="60" height="100" fill="#6d4c41"/><circle cx="160" cy="432" r="3.5" fill="#ffd60a"/></g>`;
+}
+const pin=(x,y)=>`<path d="M${x},${y} c-14,-18 -20,-26 -20,-36 a20,20 0 1,1 40,0 c0,10 -6,18 -20,36 Z" fill="#e63946" stroke="#fff" stroke-width="2.5"/><circle cx="${x}" cy="${y-36}" r="7" fill="#fff"/>`;
+const label=(x,y,txt,flag)=>`<rect x="${x-104}" y="${y}" width="208" height="42" rx="21" fill="#fff" stroke="#1d3557" stroke-width="2.5"/>${flag(x-88,y+9.5)}<text x="${x+18}" y="${y+28}" text-anchor="middle" font-size="19" font-weight="800" fill="#1d3557">${txt}</text>`;
+function mapScene(pre,fromLeft){
+  const A={x:820,y:398},B={x:180,y:398};
+  const [P0,P2]=fromLeft?[B,A]:[A,B];
+  const d=`M${P0.x},${P0.y} Q500,90 ${P2.x},${P2.y}`;
+  return `<rect width="1000" height="600" fill="#90e0ef"/>
+    <g id="${pre}cl">${cloud(-380,120,1)}${cloud(-120,220,.7)}${cloud(120,90,.9)}${cloud(380,250,.6)}${cloud(620,120,1)}${cloud(860,230,.75)}</g>
+    <rect y="440" width="1000" height="160" fill="#48cae4"/>
+    ${rep(6,i=>`<path d="M${360+i*55},${480+(i%2)*40} q10,-8 20,0 q10,8 20,0" stroke="#fff" stroke-width="3" fill="none" opacity=".7"/>`)}
+    <path d="M0,428 Q160,404 330,438 Q352,520 300,600 L0,600 Z" fill="#95d5b2"/>
+    <path d="M1000,420 Q850,404 690,448 Q656,522 724,600 L1000,600 Z" fill="#95d5b2"/>
+    ${palm(60,90,470)}${palm(930,90,470)}
+    ${pin(180,455)}${pin(820,455)}
+    ${label(180,486,'Thái Lan',thFlag)}${label(820,486,'TP. Hồ Chí Minh',vnFlag)}
+    <path d="${d}" stroke="#fff" stroke-width="4" stroke-dasharray="10 10" fill="none"/>
+    <path id="${pre}prog" d="${d}" pathLength="1" stroke="#e63946" stroke-width="5" stroke-linecap="round" fill="none" stroke-dasharray="0 1"/>
+    <g id="${pre}pl">${plane()}</g>`;
+}
+function flyAlong(pre,t,fromLeft){
+  const A={x:820,y:398},B={x:180,y:398},C={x:500,y:90};
+  const [P0,P2]=fromLeft?[B,A]:[A,B];
+  const x=(1-t)**2*P0.x+2*(1-t)*t*C.x+t*t*P2.x, y=(1-t)**2*P0.y+2*(1-t)*t*C.y+t*t*P2.y;
+  const dx=2*(1-t)*(C.x-P0.x)+2*t*(P2.x-C.x), dy=2*(1-t)*(C.y-P0.y)+2*t*(P2.y-C.y);
+  const ang=Math.atan2(dy,dx)*180/Math.PI;
+  place(pre+'pl',x,y,.62,!fromLeft,fromLeft?ang:ang-180);
+  $(pre+'prog').setAttribute('stroke-dasharray',`${t.toFixed(4)} 1`);
+  return {x,y};
+}
+function movingWithStops(p,stops){
+  let m=0,last=0,st=-1;
+  stops.forEach(([a,b],i)=>{m+=Math.max(0,Math.min(p,a)-last);if(p>=a&&p<b)st=i;last=b});
+  m+=Math.max(0,p-last);
+  return {w:m/(1-stops.reduce((s,[a,b])=>s+b-a,0)),st};
+}
+const groundLines=(y,c)=>rep(10,i=>`<rect x="${i*110+20}" y="${y}" width="60" height="6" rx="3" fill="${c}"/>`);
+
+/* ---------- các cảnh ---------- */
+const S=[];
+
+/* 1. Sân bay Tân Sơn Nhất */
+S.push({len:1.3, sky:'#8ecae6', ground:'#adb5bd',
+  cap:'Một ngày đẹp trời, cô gái mang đồ đến <b>sân bay Tân Sơn Nhất</b>. Một tay ôm chiếc gối hình chữ nhật, một tay kéo vali, sau lưng là chiếc ba lô <b>FPT</b>.',
+  svg:`<rect width="1000" height="480" fill="#8ecae6"/><circle cx="905" cy="78" r="42" fill="#ffd166"/>
+    ${cloud(80,90,1)}${cloud(520,60,.75)}
+    <g id="s0pl">${plane()}</g>
+    <rect x="295" y="170" width="34" height="310" fill="#e9ecef" stroke="#1d3557" stroke-width="3"/>
+    <path d="M280,170 L344,170 L336,128 L288,128 Z" fill="#457b9d" stroke="#1d3557" stroke-width="3"/><rect x="293" y="138" width="38" height="16" fill="#a8dadc"/>
+    <path d="M350,236 Q660,150 970,236 Z" fill="#457b9d"/>
+    <rect x="370" y="230" width="580" height="250" fill="#f1faee" stroke="#1d3557" stroke-width="4"/>
+    <rect x="455" y="246" width="410" height="42" rx="8" fill="#e63946"/>
+    <text x="660" y="275" text-anchor="middle" font-size="23" font-weight="800" fill="#fff">SÂN BAY TÂN SƠN NHẤT</text>
+    ${[390,455,520,730,795,860].map(x=>`<rect x="${x}" y="305" width="52" height="64" fill="#a8dadc" stroke="#1d3557" stroke-width="2"/>`).join('')}
+    <rect x="600" y="318" width="110" height="162" fill="#a8dadc" stroke="#1d3557" stroke-width="3"/><line x1="655" y1="318" x2="655" y2="480" stroke="#1d3557" stroke-width="3"/>
+    <rect x="0" y="480" width="1000" height="120" fill="#adb5bd"/><rect x="0" y="480" width="1000" height="12" fill="#ced4da"/>${groundLines(572,'#fff')}
+    ${girl('g0',{suitcase:true,arms:['pillow']})}`,
+  update(p){
+    place('g0',lerp(130,640,p),522,1.12); walk('g0',p*34);
+    place('s0pl',lerp(1150,-160,p),150-p*50,.36,true,-6);
+  }});
+
+/* 2. Lên máy bay */
+S.push({len:1.1, sky:'#bde0fe', ground:'#6c757d',
+  cap:'Gửi hành lý xong, cô ôm chiếc gối bước lên máy bay. ✈️',
+  svg:`<rect width="1000" height="480" fill="#bde0fe"/>${cloud(70,80,.9)}${cloud(760,60,.8)}
+    <rect y="480" width="1000" height="120" fill="#6c757d"/>${groundLines(540,'#ffd60a')}
+    <g transform="translate(640 340) scale(-3.2 3.2)">${plane({door:true})}</g>
+    <line x1="380" y1="391" x2="380" y2="462" stroke="#495057" stroke-width="6"/><circle cx="380" cy="466" r="13" fill="#222"/>
+    <line x1="706" y1="391" x2="706" y2="462" stroke="#495057" stroke-width="7"/><circle cx="694" cy="466" r="14" fill="#222"/><circle cx="720" cy="466" r="14" fill="#222"/>
+    <g><rect x="790" y="452" width="120" height="14" fill="#495057"/><circle cx="805" cy="472" r="8" fill="#222"/><circle cx="895" cy="472" r="8" fill="#222"/>
+      <g transform="rotate(-6 830 452)"><rect x="806" y="398" width="44" height="54" rx="7" fill="#2a9d8f" stroke="#1d6f66" stroke-width="3"/></g>
+      <rect x="858" y="418" width="44" height="34" rx="6" fill="#ffb703" stroke="#c98f00" stroke-width="3"/></g>
+    <polygon points="320,480 441,372 458,372 458,480" fill="#dee2e6" stroke="#6c757d" stroke-width="3"/>
+    ${rep(7,i=>`<rect x="${320+i*17.3}" y="${477-i*15.4}" width="19" height="4" fill="#495057"/>`)}
+    <rect x="300" y="472" width="170" height="10" fill="#495057"/>
+    ${girl('g1',{arms:['pillow']})}
+    <line x1="322" y1="446" x2="443" y2="338" stroke="#495057" stroke-width="3"/><line x1="322" y1="446" x2="322" y2="480" stroke="#495057" stroke-width="3"/><line x1="443" y1="338" x2="443" y2="372" stroke="#495057" stroke-width="3"/>`,
+  update(p){
+    let x,y;
+    if(p<.5){const t=p/.5;x=lerp(40,320,t);y=480}
+    else{const t=seg(p,.5,.88);x=lerp(320,441,t);y=lerp(480,372,t)}
+    place('g1',x,y,.56); walk('g1',p*40); op('g1',1-seg(p,.88,.98));
+  }});
+
+/* 3. Bay sang Thái Lan */
+S.push({len:1.1, sky:'#90e0ef', ground:'#48cae4',
+  cap:'Máy bay cất cánh, bay từ <b>Hồ Chí Minh</b> sang <b>Thái Lan</b>.',
+  svg:mapScene('s2',false),
+  update(p){
+    flyAlong('s2',ease(seg(p,.05,.92)),false);
+    $('s2cl').setAttribute('transform',`translate(${(p*380).toFixed(1)} 0)`);
+  }});
+
+/* 4. Dạo quanh Thái Lan */
+const tourStrip=`<rect x="0" y="480" width="2600" height="120" fill="#d4a373"/><rect x="0" y="480" width="2600" height="10" fill="#e9c46a"/>${groundLines(560,'#e9c46a').replace(/<rect/g,'<rect opacity=".6"')}
+  <path d="M110,232 Q480,290 850,232" stroke="#6d4c41" stroke-width="2" fill="none"/>
+  ${rep(9,i=>{const x=110+i*92.5,y=232+Math.sin(i/8*Math.PI)*42;return `<line x1="${x}" y1="${y}" x2="${x}" y2="${y+8}" stroke="#6d4c41" stroke-width="2"/><ellipse cx="${x}" cy="${y+20}" rx="11" ry="13" fill="#e63946"/><rect x="${x-5}" y="${y+31}" width="10" height="4" fill="#ffd60a"/>`})}
+  <rect x="380" y="186" width="200" height="40" rx="8" fill="#fff" stroke="#e63946" stroke-width="3"/><text x="480" y="214" text-anchor="middle" font-size="22" font-weight="800" fill="#e63946">CHỢ THÁI LAN</text>
+  ${stall(140,'#e63946','#fff',['#ff9f1c','#ffd60a','#80b918','#e63946','#ff9f1c','#80b918','#ffd60a','#e63946'])}
+  ${stall(400,'#2a9d8f','#ffd60a',['#ffd60a','#ff9f1c','#ffd60a','#9d4edd','#ffd60a','#ff9f1c','#9d4edd','#ffd60a'])}
+  ${stall(660,'#f77f00','#fff',['#80b918','#e63946','#80b918','#e63946','#ffd60a','#80b918','#e63946','#80b918'])}
+  ${tuktuk(930)}${palm(1130,180)}${temple(1220)}${palm(1700,160)}${stupa(1880)}${elephant(2160)}${palm(2400,190)}`;
+const polaroid=(id,x,y,r,inner)=>`<g id="${id}" opacity="0" transform="translate(${x} ${y})"><g transform="rotate(${r})">
+  <rect x="-44" y="-50" width="88" height="100" rx="3" fill="#fff" stroke="#ddd" stroke-width="2"/><g>${inner}</g></g></g>`;
+S.push({len:1.9, sky:'#ffe5b4', ground:'#d4a373',
+  cap:'Cô dạo quanh Thái Lan: từ khu chợ tấp nập đến những công trình cổ kính, và chụp thật nhiều ảnh. 📸',
+  svg:`<rect width="1000" height="480" fill="#ffe5b4"/><circle cx="120" cy="90" r="46" fill="#ffb703"/>${cloud(360,70,.7)}${cloud(760,110,.6)}
+    <g id="s3w">${tourStrip}</g>
+    ${girl('g3',{arms:['down','camera']})}
+    ${polaroid('s3ph1',830,95,-8,`<rect x="-36" y="-42" width="72" height="62" fill="#ffe5b4"/>${rep(5,i=>`<rect x="${-36+i*14.4}" y="-34" width="14.4" height="16" fill="${i%2?'#fff':'#e63946'}"/>`)}<circle cx="-18" cy="0" r="7" fill="#ff9f1c"/><circle cx="0" cy="2" r="7" fill="#80b918"/><circle cx="18" cy="0" r="7" fill="#ffd60a"/>`)}
+    ${polaroid('s3ph2',925,110,7,`<rect x="-36" y="-42" width="72" height="62" fill="#ffd6a5"/><path d="M-30,14 L0,-30 L30,14 Z" fill="#d62828"/><path d="M-16,-8 L0,-36 L16,-8 Z" fill="#f77f00"/><rect x="-24" y="6" width="48" height="14" fill="#fefae0"/>`)}`,
+  update(p){
+    const {w,st}=movingWithStops(p,[[.16,.27],[.55,.66]]);
+    $('s3w').setAttribute('transform',`translate(${(-1500*w).toFixed(1)} 0)`);
+    place('g3',390,480,1.05); walk('g3',w*44,st>=0?0:24);
+    arm('g3',st>=0?'camera':'down');
+    const fl=$('g3').querySelector('.fl');
+    if(st>=0){const t=seg(p,...[[.16,.27],[.55,.66]][st]);fl.setAttribute('opacity',(Math.max(0,1-Math.abs(t-.5)*7)).toFixed(2))} else fl.setAttribute('opacity',0);
+    face('g3',st>=0?'h':'n');
+    [['s3ph1',.27,830,95],['s3ph2',.66,925,110]].forEach(([id,a,x,y])=>{const k=pop(seg(p,a-.04,a+.04));op(id,k>0?1:0);place(id,x,y,Math.max(k,.001))});
+  }});
+
+/* 5. Gặp chú mèo đen */
+S.push({len:1.3, sky:'#ffd6a5', ground:'#e9c46a',
+  cap:'Rồi bất ngờ, cô bắt gặp một <b>chú mèo nhỏ màu đen</b>...',
+  svg:`<defs><linearGradient id="gSun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffadad"/><stop offset="1" stop-color="#ffd6a5"/></linearGradient></defs>
+    <rect width="1000" height="480" fill="url(#gSun)"/><circle cx="210" cy="300" r="70" fill="#ff9f1c" opacity=".85"/>
+    ${stupa(780)}${palm(950,200)}${palm(70,170)}
+    <rect y="480" width="1000" height="120" fill="#e9c46a"/><rect y="480" width="1000" height="10" fill="#f4d58d"/>
+    ${girl('g4',{arms:['down','reach']})}
+    ${cat('c4')}
+    <g id="s4b" opacity="0"><g transform="translate(-70 -10)"><path d="M560,384 Q560,346 610,346 Q662,346 662,380 Q662,412 612,412 L590,412 L572,428 L578,410 Q560,404 560,384 Z" fill="#fff" stroke="#2b2d42" stroke-width="2.5"/><text x="611" y="388" text-anchor="middle" font-size="24" font-weight="800" fill="#2b2d42">Meo~</text></g></g>
+    <g id="s4h" opacity="0">${heart()}</g>`,
+  update(p){
+    place('g4',330,480,1.1);
+    const t=ease(seg(p,0,.5)), cx=lerp(1080,470,t);
+    place('c4',cx,480,1.35,true); catWalk('c4',(1080-cx)/11,t<1?26:0);
+    catHead('c4',0,p>.5?-10:0);
+    op('s4b',seg(p,.5,.56)-seg(p,.9,.96));
+    arm('g4',p>.6?'reach':'down');
+    face('g4',p>.68?'h':'n'); face('c4',p>.68?'h':'n');
+    const k=pop(seg(p,.68,.84)); place('s4h',405,300,Math.max(k*.9,.001)); op('s4h',k>0?1:0);
+  }});
+
+/* 6. Khách sạn: sữa bò và cơm */
+S.push({len:1.5, sky:'#ffe8d6', ground:'#b08968',
+  cap:'Cô mang chú mèo về khách sạn, cho chú uống <b>sữa bò</b> và ăn <b>cơm</b>. 🥛🍚',
+  svg:`<rect width="1000" height="480" fill="#ffe8d6"/>${rep(20,i=>`<rect x="${i*50+20}" y="0" width="10" height="480" fill="#fcd5b5" opacity=".6"/>`)}
+    <rect x="380" y="110" width="220" height="180" fill="#90e0ef" stroke="#fff" stroke-width="10"/>
+    <g fill="#5e8bb5">${[[395,200,40],[440,170,30],[475,220,45],[525,150,30],[560,190,30]].map(([x,y,w])=>`<rect x="${x}" y="${y}" width="${w}" height="${285-y}"/>`).join('')}</g>
+    <line x1="490" y1="110" x2="490" y2="290" stroke="#fff" stroke-width="6"/>
+    <path d="M362,96 L420,96 Q400,200 430,300 L362,300 Z" fill="#e5989b"/><path d="M618,96 L560,96 Q580,200 550,300 L618,300 Z" fill="#e5989b"/><rect x="350" y="88" width="280" height="10" rx="5" fill="#8d5524"/>
+    <rect x="160" y="140" width="90" height="70" fill="#fff" stroke="#8d5524" stroke-width="6"/><path d="M175,198 L205,160 L235,198 Z" fill="#d62828"/><circle cx="182" cy="160" r="8" fill="#ffb703"/>
+    <rect y="480" width="1000" height="120" fill="#b08968"/>${rep(8,i=>`<line x1="${i*130}" y1="480" x2="${i*130-40}" y2="600" stroke="#9c6644" stroke-width="3"/>`)}
+    <rect x="930" y="290" width="34" height="190" rx="6" fill="#7f5539"/>
+    <rect x="640" y="392" width="300" height="52" rx="8" fill="#fff" stroke="#ddd" stroke-width="3"/>
+    <path d="M640,388 L860,388 L860,446 L640,446 Z" fill="#cdb4db"/><rect x="650" y="444" width="14" height="36" fill="#7f5539"/><rect x="910" y="444" width="14" height="36" fill="#7f5539"/>
+    <rect x="862" y="362" width="66" height="32" rx="10" fill="#fff" stroke="#ddd" stroke-width="2"/>
+    ${pack(768,392).replace('<g transform="translate(768 392)">','<g transform="translate(760 452) rotate(-6)">')}
+    <rect x="780" y="358" width="54" height="32" rx="8" fill="#ffc8dd" stroke="#ff8fab" stroke-width="3" transform="rotate(6 807 374)"/>
+    <g transform="translate(300 0)"><rect x="0" y="400" width="42" height="80" fill="#fff" stroke="#457b9d" stroke-width="3"/><path d="M0,400 L21,382 L42,400 Z" fill="#457b9d"/>
+      <ellipse cx="11" cy="466" rx="6" ry="4" fill="#222"/><ellipse cx="33" cy="414" rx="5" ry="3.5" fill="#222"/>
+      <text x="21" y="436" text-anchor="middle" font-size="13" font-weight="800" fill="#1d3557">SỮA</text><text x="21" y="452" text-anchor="middle" font-size="13" font-weight="800" fill="#1d3557">BÒ</text></g>
+    <g id="s5rice"><path d="M-24,-20 Q0,-44 24,-20 Z" fill="#fff"/>${rep(5,i=>`<ellipse cx="${-12+i*6}" cy="${-26+(i%2)*4}" rx="2.2" ry="1.4" fill="#eee"/>`)}<path d="M-28,-22 L28,-22 Q25,0 0,0 Q-25,0 -28,-22 Z" fill="#e63946"/><path d="M-20,-12 L20,-12" stroke="#fff" stroke-width="2" stroke-dasharray="4 3"/>
+      <g class="wave"><path d="M-8,-54 q-6,-8 0,-16 M8,-54 q-6,-8 0,-16" stroke="#adb5bd" stroke-width="2.5" fill="none" stroke-linecap="round"/></g></g>
+    <g id="s5milk"><ellipse cx="0" cy="-20" rx="27" ry="6" fill="#fff"/><path d="M-28,-20 Q-26,0 0,0 Q26,0 28,-20 Q0,-13 -28,-20 Z" fill="#4cc9f0"/></g>
+    ${girl('g5',{pack:false,arms:['reach','down']})}
+    ${cat('c5')}
+    <text id="s5t" x="0" y="0" font-size="20" font-weight="800" fill="#9c6644" opacity="0">chép chép~</text>`,
+  update(p){
+    place('g5',220,480,1.05); arm('g5',p<.22?'reach':'down'); face('g5',p>.5?'h':'n');
+    const kr=pop(seg(p,0,.12)), km=pop(seg(p,.07,.19));
+    place('s5rice',375,480,Math.max(kr,.001)); place('s5milk',460,480,Math.max(km,.001));
+    let cx=1080,eat=false,ph=0;
+    if(p<.24) cx=1080;
+    else if(p<.45){const t=ease(seg(p,.24,.45));cx=lerp(1080,492,t);ph=(1080-cx)/11}
+    else if(p<.7){cx=492;eat=true}
+    else if(p<.78){const t=ease(seg(p,.7,.78));cx=lerp(492,406,t);ph=(492-cx)/11}
+    else{cx=406;eat=true}
+    place('c5',cx,480,1.35,true); catWalk('c5',ph,eat?0:26);
+    catHead('c5',eat?13+Math.sin(p*90)*2.5:0,eat?24:0);
+    face('c5',eat?'h':'n');
+    const tt=$('s5t'); tt.setAttribute('x',(cx-110).toFixed(0)); tt.setAttribute('y',(400+Math.sin(p*60)*4).toFixed(0)); tt.setAttribute('opacity',eat?1:0);
+  }});
+
+/* 7. Những ngày sau, mèo theo cô */
+const followStrip=`<rect x="0" y="480" width="2500" height="120" fill="#ced4da"/><rect x="0" y="480" width="2500" height="12" fill="#e9ecef"/>${groundLines(565,'#fff')}
+  ${shop(20,'#ffafcc','PAD THAI')}${shop(240,'#a2d2ff','TRÀ THÁI')}${shop(460,'#cdb4db','KEM DỪA')}
+  ${palm(700,180)}${tuktuk(790)}${prang(1150)}${prang(1330).replace(/<g>/,'<g opacity=".85" transform="translate(-60 30) scale(1 .94)">')}${palm(1450,170)}${elephant(1660)}${palm(1900,190)}${shop(2000,'#ffd6a5','ÁO THUN')}${palm(2280,170)}`;
+S.push({len:1.5, sky:'#a2d2ff', ground:'#ced4da',
+  cap:'Những ngày sau, cô tiếp tục đi chơi, tham quan Thái Lan. Và chú mèo nhỏ cứ lon ton theo sau cô. 🐾',
+  svg:`<rect width="1000" height="480" fill="#a2d2ff"/><circle cx="880" cy="90" r="44" fill="#ffd166"/>${cloud(140,80,.8)}${cloud(520,120,.6)}
+    <g id="s6w">${followStrip}</g>
+    ${cat('c6')}${girl('g6',{arms:['down']})}
+    <g id="s6paw" opacity=".9">${rep(3,i=>`<g class="floatUp" style="animation-delay:${-i*.85}s"><path transform="translate(${-6+i*12} 0) scale(.16)" d="${'M0,35 C0,35 -50,5 -50,-15 C-50,-35 -30,-45 -15,-45 C-5,-45 0,-38 0,-30 C0,-38 5,-45 15,-45 C30,-45 50,-35 50,-15 C50,5 0,35 0,35 Z'}" fill="#ff4d6d"/></g>`)}</g>`,
+  update(p){
+    $('s6w').setAttribute('transform',`translate(${(-1450*p).toFixed(1)} 0)`);
+    place('g6',560,480,1.05); walk('g6',p*58); face('g6',(p*4%1)>.6?'h':'n');
+    place('c6',420+Math.sin(p*14)*14,480,1.3); catWalk('c6',p*80);
+    place('s6paw',440+Math.sin(p*14)*14,400);
+  }});
+
+/* 8. Xôi xoài */
+S.push({len:1.3, sky:'#caf0f8', ground:'#e9ecef',
+  cap:'Cô cho chú mèo ăn <b>xôi xoài</b>. Ban đầu chú thích thú lắm! 🥭',
+  svg:`<rect width="1000" height="480" fill="#caf0f8"/><circle cx="110" cy="90" r="40" fill="#ffd166"/>${cloud(300,80,.7)}${palm(950,200)}
+    <rect y="480" width="1000" height="120" fill="#e9ecef"/><rect y="480" width="1000" height="10" fill="#f8f9fa"/>
+    <path d="M580,282 Q712,150 844,282 Z" fill="#ffb703"/>${rep(4,i=>`<path d="M712,174 L${600+i*75},282" stroke="#e85d04" stroke-width="5"/>`)}<line x1="712" y1="282" x2="712" y2="380" stroke="#6d4c41" stroke-width="6"/>
+    <rect x="590" y="372" width="244" height="12" rx="4" fill="#9c6644"/>
+    ${rep(6,i=>`<ellipse cx="${612+i*30}" cy="362" rx="14" ry="10" fill="${i%2?'#ffb703':'#fb8500'}"/>`)}<path d="M790,372 Q805,340 822,372 Z" fill="#fff"/>
+    <rect x="590" y="384" width="244" height="72" rx="8" fill="#f77f00"/>
+    <rect x="612" y="396" width="200" height="46" rx="8" fill="#fff"/><text x="712" y="430" text-anchor="middle" font-size="29" font-weight="800" fill="#e85d04">XÔI XOÀI</text>
+    <circle cx="630" cy="460" r="20" fill="#333"/><circle cx="630" cy="460" r="8" fill="#adb5bd"/><circle cx="794" cy="460" r="20" fill="#333"/><circle cx="794" cy="460" r="8" fill="#adb5bd"/>
+    ${girl('g7',{arms:['reach','down']})}
+    <g id="s7plate"><ellipse cx="0" cy="-6" rx="44" ry="9" fill="#fff" stroke="#bbb" stroke-width="2"/>
+      <g id="s7food"><path d="M-30,-8 Q-16,-34 2,-32 Q14,-34 28,-8 Z" fill="#fff" stroke="#e5e5e5" stroke-width="1.5"/><path d="M-20,-20 Q-4,-30 14,-24" stroke="#fffbe6" stroke-width="4" fill="none"/>
+      <ellipse cx="18" cy="-14" rx="16" ry="7" fill="#ffb703" transform="rotate(-18 18 -14)"/><ellipse cx="26" cy="-10" rx="14" ry="6" fill="#ffc300" transform="rotate(-8 26 -10)"/></g></g>
+    ${cat('c7')}
+    <g id="s7h" opacity="0">${rep(3,i=>`<g class="floatUp" style="animation-delay:${-i*.8}s"><path transform="translate(${-14+i*16} 0) scale(.22)" d="M0,35 C0,35 -50,5 -50,-15 C-50,-35 -30,-45 -15,-45 C-5,-45 0,-38 0,-30 C0,-38 5,-45 15,-45 C30,-45 50,-35 50,-15 C50,5 0,35 0,35 Z" fill="#ff4d6d"/></g>`)}</g>
+    <g id="s7b" opacity="0"><path d="M470,300 Q470,262 534,262 Q600,262 600,296 Q600,330 540,330 L520,330 L504,348 L508,328 Q470,322 470,300 Z" fill="#fff" stroke="#2b2d42" stroke-width="2.5"/><text x="535" y="304" text-anchor="middle" font-size="21" font-weight="800" fill="#2b2d42">Ngon quá!</text></g>`,
+  update(p){
+    place('g7',260,480,1.05); arm('g7',p<.2?'reach':'down'); face('g7',p>.4?'h':'n');
+    place('s7plate',400,480,Math.max(pop(seg(p,0,.14)),.001));
+    const t=ease(seg(p,.1,.3)), cx=lerp(1080,474,t), eat=p>=.3;
+    place('c7',cx,480,1.35,true); catWalk('c7',(1080-cx)/11,eat?0:26);
+    catHead('c7',eat?13+Math.sin(p*90)*2.5:0,eat?24:0); face('c7',eat?'h':'n');
+    $('s7food').setAttribute('transform',`translate(0 -6) scale(1 ${(1-.65*seg(p,.32,.95)).toFixed(3)}) translate(0 6)`);
+    op('s7h',seg(p,.34,.4)); place('s7h',470,380);
+    op('s7b',seg(p,.55,.6));
+  }});
+
+/* 9. Buổi tối trong nhà vệ sinh */
+S.push({len:1.3, sky:'#caf0f8', ground:'#dee2e6',
+  cap:'Nhưng đến tối... chú mèo lại <b>ngồi trong bồn cầu</b> để đi nặng. 😹',
+  svg:`<defs><pattern id="tile" width="50" height="50" patternUnits="userSpaceOnUse"><rect width="50" height="50" fill="#caf0f8"/><path d="M50,0 L0,0 0,50" fill="none" stroke="#a9def0" stroke-width="3"/></pattern>
+      <pattern id="floor" width="60" height="60" patternUnits="userSpaceOnUse"><rect width="60" height="60" fill="#f8f9fa"/><rect width="30" height="30" fill="#ced4da"/><rect x="30" y="30" width="30" height="30" fill="#ced4da"/></pattern></defs>
+    <rect width="1000" height="480" fill="url(#tile)"/><rect y="480" width="1000" height="120" fill="url(#floor)"/>
+    <rect x="720" y="100" width="150" height="120" fill="#14213d" stroke="#fff" stroke-width="8"/><circle cx="820" cy="145" r="20" fill="#ffd60a"/><circle cx="830" cy="138" r="18" fill="#14213d"/>
+    <circle class="twinkle" cx="752" cy="130" r="3" fill="#fff"/><circle class="twinkle" style="animation-delay:-1s" cx="780" cy="190" r="2.5" fill="#fff"/><circle class="twinkle" style="animation-delay:-.5s" cx="850" cy="196" r="2.5" fill="#fff"/>
+    <rect x="70" y="200" width="170" height="280" fill="#3d2c22"/><rect x="62" y="192" width="186" height="288" fill="none" stroke="#8d5524" stroke-width="14"/>
+    <path d="M70,200 L20,180 L20,500 L70,480 Z" fill="#b5835a"/>
+    ${girl('g8',{pack:false,arms:['down'],mouth:'o'})}
+    <path id="s8sw" d="M0,-12 Q-7,0 0,4 Q7,0 0,-12 Z" fill="#4cc9f0"/>
+    <rect x="660" y="360" width="14" height="40" fill="#adb5bd"/><rect x="674" y="366" width="34" height="28" rx="12" fill="#fff" stroke="#ccc" stroke-width="2"/>
+    <rect x="470" y="262" width="100" height="92" rx="10" fill="#fff" stroke="#8d99ae" stroke-width="3"/><rect x="540" y="276" width="18" height="8" rx="3" fill="#adb5bd"/>
+    <path d="M440,362 Q444,430 490,450 L490,480 L550,480 L550,450 Q596,430 600,362 Z" fill="#fff" stroke="#8d99ae" stroke-width="3"/>
+    <ellipse cx="520" cy="362" rx="84" ry="17" fill="#f8f9fa" stroke="#8d99ae" stroke-width="3"/><ellipse cx="520" cy="362" rx="62" ry="10" fill="#90e0ef"/>
+    ${catSit('c8')}
+    <path d="M454,368 Q520,388 586,368" stroke="#8d99ae" stroke-width="3" fill="#fff"/>
+    <g id="s8stink" opacity="0">${[470,520,570].map((x,i)=>`<g class="wave" style="animation-delay:${-i*.5}s"><path d="M${x},300 q-10,-14 0,-28 q10,-14 0,-28" stroke="#80b918" stroke-width="5" fill="none" stroke-linecap="round"/></g>`).join('')}</g>
+    <text id="s8t1" x="620" y="300" font-size="26" font-weight="800" fill="#6a4c93" opacity="0">Ưmmm...</text>
+    <text id="s8t2" x="612" y="300" font-size="24" font-weight="800" fill="#2a9d8f" opacity="0">Phù~ nhẹ cả người!</text>`,
+  update(p){
+    place('g8',160,480,1.05); face('g8',p>.82?'h':'n');
+    place('s8sw',192,320+seg(p,0,.6)*14);
+    const strain=p>.15&&p<.8;
+    place('c8',520+(strain?Math.sin(p*260)*1.6:0),372,1.15);
+    face('c8',p<.15?'n':(strain?'s':'h'));
+    op('s8stink',seg(p,.2,.3)); op('s8t1',seg(p,.25,.32)-seg(p,.74,.8)); op('s8t2',seg(p,.82,.88));
+  }});
+
+/* 10. Về lại Việt Nam */
+S.push({len:1.2, sky:'#90e0ef', ground:'#48cae4',
+  cap:'Cô trở về Việt Nam, và trong lòng cô có thêm <b>một chú mèo</b>. 🖤',
+  svg:mapScene('s9',true)+`<g id="s9bub" opacity="0"><circle cx="-26" cy="66" r="7" fill="#fff" stroke="#2b2d42" stroke-width="2"/><circle cx="-12" cy="50" r="10" fill="#fff" stroke="#2b2d42" stroke-width="2"/>
+    <ellipse cx="0" cy="0" rx="92" ry="54" fill="#fff" stroke="#2b2d42" stroke-width="2.5"/>${girlFace(-38,6,.62)}${catFace(42,10,.58)}
+    <g transform="translate(2 -36) scale(.2)">${heart()}</g></g>`,
+  update(p){
+    const pos=flyAlong('s9',ease(seg(p,.05,.92)),true);
+    $('s9cl').setAttribute('transform',`translate(${(-p*380).toFixed(1)} 0)`);
+    const k=pop(seg(p,.12,.24)); op('s9bub',k>0?1:0); place('s9bub',pos.x+30,pos.y-110,Math.max(k,.001));
+  }});
+
+/* 11. Ngủ cùng nhau */
+S.push({len:1.3, sky:'#2b2d42', ground:'#5c4033',
+  cap:'Đêm về, cô ngủ trên chiếc giường của mình, chú mèo cuộn tròn ngủ chung bên cạnh. 💤',
+  svg:`<rect width="1000" height="480" fill="#2b2d42"/>
+    <defs><radialGradient id="glow"><stop offset="0" stop-color="#ffd166" stop-opacity=".45"/><stop offset="1" stop-color="#ffd166" stop-opacity="0"/></radialGradient></defs><circle cx="855" cy="345" r="170" fill="url(#glow)"/>
+    <rect x="110" y="100" width="220" height="180" fill="#14213d" stroke="#f1faee" stroke-width="8"/><line x1="220" y1="100" x2="220" y2="280" stroke="#f1faee" stroke-width="5"/>
+    <circle cx="170" cy="160" r="26" fill="#ffd60a"/><circle cx="182" cy="152" r="24" fill="#14213d"/>
+    ${[[260,140],[290,220],[150,236],[250,180],[300,130]].map(([x,y],i)=>`<polygon class="twinkle" style="animation-delay:${-i*.4}s" points="${starPts(x,y,7,3)}" fill="#fff"/>`).join('')}
+    <path d="M96,92 L140,92 Q126,190 150,290 L96,290 Z" fill="#6a4c93"/><path d="M344,92 L300,92 Q314,190 290,290 L344,290 Z" fill="#6a4c93"/>
+    <rect x="470" y="150" width="100" height="80" fill="#fff" stroke="#8d5524" stroke-width="6"/><path d="M482,220 L520,170 L558,220 Z" fill="#d62828"/><path d="M500,220 L520,196 L540,220 Z" fill="#f77f00"/>
+    <rect y="480" width="1000" height="120" fill="#5c4033"/>
+    <rect x="810" y="400" width="90" height="80" fill="#8d5524"/><rect x="845" y="370" width="20" height="30" fill="#6d4c41"/><path d="M820,370 L890,370 L874,326 L836,326 Z" fill="#ffd166"/>
+    <rect x="230" y="300" width="34" height="180" rx="8" fill="#8d5524"/><rect x="760" y="372" width="24" height="108" rx="6" fill="#8d5524"/>
+    <rect x="250" y="390" width="530" height="56" rx="10" fill="#f1faee"/><rect x="260" y="446" width="14" height="34" fill="#6d4c41"/><rect x="750" y="446" width="14" height="34" fill="#6d4c41"/>
+    <rect x="272" y="350" width="104" height="44" rx="12" fill="#ffc8dd" stroke="#ff8fab" stroke-width="3"/><rect x="280" y="357" width="88" height="30" rx="8" fill="none" stroke="#ff8fab" stroke-width="1.6" stroke-dasharray="3 3"/>
+    <g transform="rotate(-14 330 360)"><ellipse cx="318" cy="362" rx="38" ry="26" fill="${HAIR}"/><circle cx="332" cy="360" r="24" fill="${SKIN}"/>
+      <path d="M308,352 Q320,334 344,338 Q336,346 322,348 Z" fill="${HAIR}"/>
+      <path d="M326,360 Q331,365 336,360 M342,360 Q347,365 352,360" stroke="#222" stroke-width="2.3" fill="none" stroke-linecap="round"/>
+      <ellipse cx="324" cy="370" rx="5" ry="3" fill="#ff8fab" opacity=".7"/><ellipse cx="352" cy="370" rx="5" ry="3" fill="#ff8fab" opacity=".7"/><path d="M336,374 Q340,377 344,374" stroke="#a4161a" stroke-width="2" fill="none" stroke-linecap="round"/></g>
+    <g class="breathe"><path d="M352,372 Q520,342 772,368 L772,446 L352,446 Z" fill="#90e0ef"/>${rep(12,i=>`<circle cx="${380+i*33}" cy="${408+(i%2)*18}" r="5" fill="#fff" opacity=".8"/>`)}
+      <path d="M352,372 Q520,342 772,368" stroke="#48cae4" stroke-width="8" fill="none"/></g>
+    <path d="M388,378 Q420,366 452,372" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <g id="s10cat"><path d="M494,358 Q500,382 560,378 Q590,376 598,362" stroke="${BLK}" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <ellipse cx="540" cy="346" rx="44" ry="22" fill="${BLK}"/>
+      <path d="M560,334 L566,314 L576,328 Z M576,330 L590,316 L590,336 Z" fill="${BLK}"/><circle cx="578" cy="342" r="15" fill="${BLK}"/>
+      <path d="M570,342 Q574,346 578,342 M582,342 Q586,346 590,342" stroke="#ffd60a" stroke-width="1.8" fill="none" stroke-linecap="round"/></g>
+    ${[0,1,2].map(i=>`<g class="floatUp" style="animation-delay:${-i*.87}s"><text x="${370+i*16}" y="${312-i*10}" font-size="${22+i*6}" font-weight="800" fill="#caf0f8">Z</text></g>`).join('')}
+    ${[0,1].map(i=>`<g class="floatUp" style="animation-delay:${-i*1.3-.4}s"><text x="${596+i*10}" y="${318-i*8}" font-size="${15+i*4}" font-weight="800" fill="#ffd60a">z</text></g>`).join('')}`,
+  update(p){ place('s10cat',lerp(-30,0,ease(seg(p,0,.25))),0,1); op('s10cat',seg(p,0,.18)); }
+});
+
+/* 12. Kết */
+const smallHearts=rep(14,i=>{const x=40+((i*137)%920),y=520+(i%4)*20,s=.18+(i%3)*.08;return `<g class="floatUp" style="animation-duration:${3+i%4}s;animation-delay:${-i*.37}s"><g transform="translate(${x} ${y-(i%5)*90}) scale(${s})">${heart(i%2?'#ff8fab':'#ffb3c6')}</g></g>`});
+S.push({len:1.5, sky:'#ffe5ec', ground:'#ffe5ec', cap:'',
+  svg:`<rect width="1000" height="600" fill="#ffe5ec"/>${smallHearts}
+    <g id="s11h"><g class="pulse">
+      <g transform="scale(4.7)"><path d="M0,35 C0,35 -50,5 -50,-15 C-50,-35 -30,-45 -15,-45 C-5,-45 0,-38 0,-30 C0,-38 5,-45 15,-45 C30,-45 50,-35 50,-15 C50,5 0,35 0,35 Z" fill="#ff4d6d" stroke="#fff" stroke-width="1.4"/></g>
+      ${girlFace(-92,-28,1.05)}${catFace(96,-20,1)}
+    </g></g>
+    <text id="s11t" x="500" y="552" text-anchor="middle" font-size="46" font-weight="800" fill="#c9184a" stroke="#fff" stroke-width="8" paint-order="stroke" opacity="0">Bên meo cả quãng đời còn lại nhé!</text>`,
+  update(p){
+    const k=pop(seg(p,0,.35)); place('s11h',500,268,Math.max(k,.001)); op('s11h',k>0?1:0);
+    op('s11t',seg(p,.35,.55));
+    $('s11t').setAttribute('transform',`translate(0 ${(16*(1-ease(seg(p,.35,.55)))).toFixed(1)})`);
+  }});
+
+/* ---------- dàn dựng & cuộn ---------- */
+const svg=$('svg'), stage=$('stage'), cap=$('cap'), intro=$('intro'), bar=$('bar'), track=$('track');
+svg.innerHTML=S.map((s,i)=>`<g class="scene" id="sc${i}">${s.svg}</g>`).join('');
+const total=S.reduce((a,s)=>a+s.len,0);
+track.style.height=`calc(${(total*105).toFixed(0)}vh + 100vh)`;
+
+let active=-1, cur=0, tgt=0, last=-1, capToken=0, capFor=-2;
+function setCaption(i){
+  const tok=++capToken; cap.classList.add('hide');
+  setTimeout(()=>{ if(tok!==capToken || i<0 || !S[i].cap) return;
+    cap.innerHTML=`<span class="n">Cảnh ${i+1} / ${S.length-1}</span>${S[i].cap}`; cap.classList.remove('hide');
+  },260);
+}
+function render(pos){
+  let acc=0, idx=S.length-1, p=1;
+  for(let i=0;i<S.length;i++){ if(pos<acc+S[i].len){ idx=i; p=clamp((pos-acc)/S[i].len); break } acc+=S[i].len }
+  if(idx!==active){
+    if(active>=0) $('sc'+active).classList.remove('on');
+    $('sc'+idx).classList.add('on'); active=idx;
+    stage.style.background=`linear-gradient(${S[idx].sky} 50%, ${S[idx].ground} 50%)`;
+  }
+  S[idx].update(p);
+  bar.style.width=(pos/total*100).toFixed(2)+'%';
+  const started=pos>.04;
+  intro.classList.toggle('gone',started);
+  const want=started?idx:-1;
+  if(want!==capFor){ capFor=want; setCaption(want) }
+}
+function readScroll(){
+  const max=document.documentElement.scrollHeight-innerHeight;
+  tgt=max>0?clamp(scrollY/max)*total*0.99999:0;
+}
+function frame(){
+  cur+=(tgt-cur)*.14; if(Math.abs(tgt-cur)<1e-4) cur=tgt;
+  if(Math.abs(cur-last)>1e-5){ render(cur); last=cur }
+  requestAnimationFrame(frame);
+}
+addEventListener('scroll',readScroll,{passive:true});
+addEventListener('resize',readScroll);
+S.forEach((s,i)=>{ $('sc'+i).classList.add('on'); s.update(0); $('sc'+i).classList.remove('on') });
+readScroll(); cur=tgt; render(cur); last=cur; requestAnimationFrame(frame);
+</script>
